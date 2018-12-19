@@ -24,6 +24,9 @@ type config struct {
 	Branch1  string `help:"first Git branch"`
 	Branch2  string `help:"second Git branch"`
 
+	EnableMemProfile bool `help:"write a mem profile and run pprof"`
+	EnableCpuProfile bool `help:"write a cpu profile and run pprof"`
+
 	OutputDir string
 }
 
@@ -41,6 +44,10 @@ func main() {
 
 	arg.MustParse(&cfg)
 
+	if cfg.EnableCpuProfile && cfg.EnableMemProfile {
+		log.Fatal("Use either --enablememprofile or --enablecpuprofile -- not both.")
+	}
+
 	if cfg.OutputDir == "" {
 		var err error
 		cfg.OutputDir, err = ioutil.TempDir("", "gobench")
@@ -51,6 +58,11 @@ func main() {
 	r := runner{config: cfg}
 
 	r.runBenchmarks()
+
+	if r.profilingEnabled() {
+		r.runPprof()
+	}
+
 }
 
 type runner struct {
@@ -69,7 +81,7 @@ func (r runner) runBenchmarks() {
 }
 
 func (r runner) runBenchmark(name string) error {
-	args := append(r.asBenchArgs(), r.Package)
+	args := append(r.asBenchArgs(name), r.Package)
 
 	cmd := exec.Command("go", args...)
 	f, err := r.createOutputFile(name)
@@ -97,6 +109,26 @@ func (r runner) runBenchcmp(name1, name2 string) error {
 	fmt.Println(string(output))
 
 	return nil
+}
+
+func (r runner) runPprof() error {
+	args := []string{"tool", "pprof"}
+	if r.Branch1 != r.Branch2 {
+		args = append(args, "-base", r.profileOutFilename(r.Branch1))
+	}
+	args = append(args, r.profileOutFilename(r.Branch2))
+
+	cmd := exec.Command("go", args...)
+
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+	cmd.Stdin = os.Stdin
+
+	if err := cmd.Start(); err != nil {
+		return err
+	}
+
+	return cmd.Wait()
 
 }
 
@@ -115,14 +147,23 @@ func must(err error) {
 	}
 }
 
-func (c config) asBenchArgs() []string {
-	return []string{
+func (c config) asBenchArgs(name string) []string {
+	args := []string{
 		"test",
 		"-run", "NONE",
 		"-bench", c.Bench,
 		fmt.Sprintf("-count=%d", c.Count),
 		fmt.Sprintf("-test.benchmem=%t", c.BenchMem),
 	}
+
+	if c.EnableMemProfile {
+		args = append(args, "-memprofile", c.profileOutFilename(name))
+	}
+	if c.EnableCpuProfile {
+		args = append(args, "-cpuprofile", c.profileOutFilename(name))
+	}
+
+	return args
 }
 
 func (c config) benchOutFilename(name string) string {
@@ -131,6 +172,14 @@ func (c config) benchOutFilename(name string) string {
 
 func (c config) benchOutName(name string) string {
 	return name + ".bench"
+}
+
+func (c config) profileOutFilename(name string) string {
+	return filepath.Join(c.OutputDir, (name + ".pprof"))
+}
+
+func (c config) profilingEnabled() bool {
+	return c.EnableCpuProfile || c.EnableMemProfile
 }
 
 func (c config) createOutputFile(name string) (io.WriteCloser, error) {
