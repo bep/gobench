@@ -8,26 +8,28 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strings"
 
 	arg "github.com/alexflint/go-arg"
 )
 
-const (
-	branchMaster = "master"
+var (
+	// These will be set by Goreleaser.
+	version = "v0.5"
+	commit  = ""
+	date    = ""
 )
 
 type config struct {
-	Bench    string `help:"run only those benchmarks matching a regular expression"`
-	Count    int    `help:"run benchmark count times"`
-	BenchMem bool   `arg:"--bench-mem" help:"enable to benchmark memory usage"`
-	Package  string `help:"package to test"`
-	Branch1  string `help:"first Git branch"`
-	Branch2  string `help:"second Git branch"`
+	Bench   string `help:"run only those benchmarks matching a regular expression"`
+	Count   int    `help:"run benchmark count times"`
+	Package string `arg:"required" help:"package to test (e.g. ./lib)"`
+	Base    string `help:"Git version (tag, branch etc.) to compare with. Leave empty to run on current branch only."`
 
-	EnableMemProfile bool `help:"write a mem profile and run pprof"`
-	EnableCpuProfile bool `help:"write a cpu profile and run pprof"`
+	ProfMem bool `help:"write a mem profile and run pprof"`
+	ProfCpu bool `help:"write a cpu profile and run pprof"`
 
-	OutputDir string
+	OutDir string `help:"directory to write files to. Defaults to a temp dir."`
 }
 
 func main() {
@@ -36,26 +38,35 @@ func main() {
 
 	// Defaults
 	cfg.Bench = "Bench*"
-	cfg.Count = 3
-	cfg.Package = "./..."
-	cfg.BenchMem = true
-	cfg.Branch1 = branchMaster
-	cfg.Branch2 = branchMaster
 
-	arg.MustParse(&cfg)
+	p := arg.MustParse(&cfg)
 
-	if cfg.EnableCpuProfile && cfg.EnableMemProfile {
-		log.Fatal("Use either --enablememprofile or --enablecpuprofile -- not both.")
+	if cfg.ProfCpu && cfg.ProfMem {
+		p.Fail("Use either --profmem or --profcpu not both.")
 	}
 
-	if cfg.OutputDir == "" {
+	if cfg.OutDir == "" {
 		var err error
-		cfg.OutputDir, err = ioutil.TempDir("", "gobench")
-		must(err)
-		defer os.Remove(cfg.OutputDir)
+		cfg.OutDir, err = ioutil.TempDir("", "gobench")
+		checkErr(err)
+		defer os.Remove(cfg.OutDir)
 	}
 
-	r := runner{config: cfg}
+	if cfg.Count == 0 {
+		cfg.Count = 1
+		if cfg.Base != "" {
+			// We pick the best result when doing compare.
+			cfg.Count = 3
+		}
+	}
+
+	r := runner{currentBranch: getCurrentBranch(), config: cfg}
+
+	if r.Base != "" {
+		fmt.Printf("Benchmark and compare branch %q and %q.\n", r.Base, r.currentBranch)
+	} else {
+		fmt.Printf("Benchmark branch %q\n", r.currentBranch)
+	}
 
 	r.runBenchmarks()
 
@@ -66,25 +77,33 @@ func main() {
 }
 
 type runner struct {
+	currentBranch string
 	config
 }
 
 func (r runner) runBenchmarks() {
-	must(r.checkout(r.Branch1))
-	must(r.runBenchmark(r.Branch1))
-	if r.Branch1 == r.Branch2 {
-		return
+	if r.Base != "" {
+		// Start with the "left" branch
+		checkErr(r.checkout(r.Base))
+		checkErr(r.runBenchmark(r.Base))
+		checkErr(r.checkout(r.currentBranch))
 	}
-	must(r.checkout(r.Branch2))
-	must(r.runBenchmark(r.Branch2))
-	must(r.runBenchcmp(r.Branch1, r.Branch2))
+
+	checkErr(r.runBenchmark(r.currentBranch))
+
+	if r.Base != "" {
+		// Make it stand out a little.
+		fmt.Print("\n\n")
+		checkErr(r.runBenchcmp(r.Base, r.currentBranch))
+	}
 }
 
 func (r runner) runBenchmark(name string) error {
 	args := append(r.asBenchArgs(name), r.Package)
 
 	cmd := exec.Command("go", args...)
-	f, err := r.createOutputFile(name)
+
+	f, err := r.createBenchOutputFile(name)
 	if err != nil {
 		return err
 	}
@@ -93,14 +112,14 @@ func (r runner) runBenchmark(name string) error {
 	output := io.MultiWriter(f, os.Stdout)
 
 	cmd.Stdout = output
-	cmd.Stderr = output
+	cmd.Stderr = os.Stderr
 
 	return cmd.Run()
-
 }
 
 func (r runner) runBenchcmp(name1, name2 string) error {
 	filename1, filename2 := r.benchOutFilename(name1), r.benchOutFilename(name2)
+
 	args := []string{"-best", filename1, filename2}
 	output, err := exec.Command("benchcmp", args...).CombinedOutput()
 	if err != nil {
@@ -113,10 +132,10 @@ func (r runner) runBenchcmp(name1, name2 string) error {
 
 func (r runner) runPprof() error {
 	args := []string{"tool", "pprof"}
-	if r.Branch1 != r.Branch2 {
-		args = append(args, "-base", r.profileOutFilename(r.Branch1))
+	if r.Base != "" {
+		args = append(args, "-base", r.profileOutFilename(r.Base))
 	}
-	args = append(args, r.profileOutFilename(r.Branch2))
+	args = append(args, r.profileOutFilename(r.currentBranch))
 
 	cmd := exec.Command("go", args...)
 
@@ -141,9 +160,15 @@ func (r runner) checkout(branch string) error {
 	return nil
 }
 
-func must(err error) {
+func getCurrentBranch() string {
+	output, err := exec.Command("git", "rev-parse", "--abbrev-ref", "HEAD").Output()
+	checkErr(err)
+	return strings.TrimSpace(string(output))
+}
+
+func checkErr(err error) {
 	if err != nil {
-		log.Fatal(err)
+		log.Fatal("Error: ", err)
 	}
 }
 
@@ -153,13 +178,13 @@ func (c config) asBenchArgs(name string) []string {
 		"-run", "NONE",
 		"-bench", c.Bench,
 		fmt.Sprintf("-count=%d", c.Count),
-		fmt.Sprintf("-test.benchmem=%t", c.BenchMem),
+		"-test.benchmem=true",
 	}
 
-	if c.EnableMemProfile {
+	if c.ProfMem {
 		args = append(args, "-memprofile", c.profileOutFilename(name))
 	}
-	if c.EnableCpuProfile {
+	if c.ProfCpu {
 		args = append(args, "-cpuprofile", c.profileOutFilename(name))
 	}
 
@@ -167,27 +192,38 @@ func (c config) asBenchArgs(name string) []string {
 }
 
 func (c config) benchOutFilename(name string) string {
-	return filepath.Join(c.OutputDir, c.benchOutName(name))
-}
-
-func (c config) benchOutName(name string) string {
-	return name + ".bench"
+	return filepath.Join(c.OutDir, name+".bench")
 }
 
 func (c config) profileOutFilename(name string) string {
-	return filepath.Join(c.OutputDir, (name + ".pprof"))
+	return filepath.Join(c.OutDir, (name + ".pprof"))
 }
 
 func (c config) profilingEnabled() bool {
-	return c.EnableCpuProfile || c.EnableMemProfile
+	return c.ProfCpu || c.ProfMem
 }
 
-func (c config) createOutputFile(name string) (io.WriteCloser, error) {
-	f, err := os.Create(filepath.Join(c.OutputDir, c.benchOutName(name)))
+func (c config) createBenchOutputFile(name string) (io.WriteCloser, error) {
+	f, err := os.Create(c.benchOutFilename(name))
 	if err != nil {
 		return nil, err
 	}
-
 	return f, nil
+}
 
+func (c config) Version() string {
+	version := "gobench " + version
+
+	if commit != "" || date != "" {
+		version += ","
+	}
+	if commit != "" {
+		version += " " + commit
+	}
+
+	if date != "" {
+		version += " " + date
+	}
+
+	return version
 }
