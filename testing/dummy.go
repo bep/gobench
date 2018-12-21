@@ -4,7 +4,7 @@ import (
 	"time"
 )
 
-var d time.Duration = 10 * time.Millisecond
+var d time.Duration = 20 * time.Millisecond
 
 func sleep() {
 	time.Sleep(d)

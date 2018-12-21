@@ -8,7 +8,7 @@ import (
 )
 
 func TestGobench(t *testing.T) {
-	os.Args = []string{"-bench Sleep", "--package=./testing"}
+	os.Args = []string{"--bench=Sleep", "--package=./testing"}
 
 	oldOut := os.Stdout
 	r, w, _ := os.Pipe()
@@ -22,7 +22,7 @@ func TestGobench(t *testing.T) {
 
 	os.Stdout = oldOut
 
-	assertContainsAll(t, outStr, "8 B/op", `Benchmark branch "master"`)
+	assertContainsAll(t, outStr, "8 B/op", "0 allocs/op", `Benchmark branch "master"`)
 }
 
 func assertContainsAll(t *testing.T, content string, values ...string) {
