@@ -82,11 +82,20 @@ type runner struct {
 }
 
 func (r runner) runBenchmarks() {
+
 	if r.Base != "" {
 		// Start with the "left" branch
 		checkErr(r.checkout(r.Base))
 		checkErr(r.runBenchmark(r.Base))
 		checkErr(r.checkout(r.currentBranch))
+	} else if hasUncommittedChanges() {
+		fmt.Println("Stash changes")
+		// Stash and compare
+		stash("save")
+		r.Base = "stash"
+		checkErr(r.runBenchmark(r.Base))
+		stash("pop")
+
 	}
 
 	checkErr(r.runBenchmark(r.currentBranch))
@@ -164,6 +173,26 @@ func getCurrentBranch() string {
 	output, err := exec.Command("git", "rev-parse", "--abbrev-ref", "HEAD").Output()
 	checkErr(err)
 	return strings.TrimSpace(string(output))
+}
+
+func stash(command string) string {
+	output, err := exec.Command("git", "stash", command).Output()
+	checkErr(err)
+	return strings.TrimSpace(string(output))
+}
+
+func hasUncommittedChanges() bool {
+	_, err := exec.Command("git", "diff-index", "--quiet", "HEAD").Output()
+
+	if err == nil {
+		return false
+	}
+	if _, ok := err.(*exec.ExitError); ok {
+		return true
+	}
+
+	log.Fatal(err)
+	return true
 }
 
 func checkErr(err error) {
