@@ -89,8 +89,8 @@ func (r runner) runBenchmarks() {
 		checkErr(r.runBenchmark(r.Base))
 		checkErr(r.checkout(r.currentBranch))
 	} else if hasUncommittedChanges() {
-		fmt.Println("Stash changes")
 		// Stash and compare
+		fmt.Println("Stash changes")
 		stash("save")
 		r.Base = "stash"
 		checkErr(r.runBenchmark(r.Base))
@@ -182,7 +182,7 @@ func stash(command string) string {
 }
 
 func hasUncommittedChanges() bool {
-	_, err := exec.Command("git", "diff-index", "--quiet", "HEAD").Output()
+	_, err := exec.Command("git", "diff-index", "--quiet", "HEAD", "--").Output()
 
 	if err == nil {
 		return false
