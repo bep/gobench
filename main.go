@@ -145,6 +145,8 @@ func (r runner) runPprof() error {
 		args = append(args, "-base", r.profileOutFilename(r.Base))
 	}
 
+	args = append(args, "--ignore=runtime")
+
 	if r.ProfMem {
 		args = append(args, "--alloc_objects")
 	}
