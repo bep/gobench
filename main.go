@@ -81,7 +81,7 @@ type runner struct {
 	config
 }
 
-func (r runner) runBenchmarks() {
+func (r *runner) runBenchmarks() {
 
 	if r.Base != "" {
 		// Start with the "left" branch
