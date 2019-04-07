@@ -20,6 +20,14 @@ var (
 	date    = ""
 )
 
+var goExe = "go"
+
+func init() {
+	if exe := os.Getenv("GOEXE"); exe != "" {
+		goExe = exe
+	}
+}
+
 type config struct {
 	Bench   string `help:"run only those benchmarks matching a regular expression"`
 	Count   int    `help:"run benchmark count times"`
@@ -61,6 +69,8 @@ func main() {
 	}
 
 	r := runner{currentBranch: getCurrentBranch(), config: cfg}
+
+	fmt.Printf("Using Go binary: %q\n", goExe)
 
 	if r.Base != "" {
 		fmt.Printf("Benchmark and compare branch %q and %q.\n", r.Base, r.currentBranch)
@@ -110,7 +120,7 @@ func (r *runner) runBenchmarks() {
 func (r runner) runBenchmark(name string) error {
 	args := append(r.asBenchArgs(name), r.Package)
 
-	cmd := exec.Command("go", args...)
+	cmd := exec.Command(goExe, args...)
 
 	f, err := r.createBenchOutputFile(name)
 	if err != nil {
@@ -152,7 +162,7 @@ func (r runner) runPprof() error {
 	}
 	args = append(args, r.profileOutFilename(r.currentBranch))
 
-	cmd := exec.Command("go", args...)
+	cmd := exec.Command(goExe, args...)
 
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
