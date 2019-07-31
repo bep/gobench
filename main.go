@@ -56,7 +56,7 @@ func main() {
 	if cfg.OutDir == "" {
 		var err error
 		cfg.OutDir, err = ioutil.TempDir("", "gobench")
-		checkErr(err)
+		checkErr("create temp dir", err)
 		defer os.Remove(cfg.OutDir)
 	}
 
@@ -95,25 +95,25 @@ func (r *runner) runBenchmarks() {
 
 	if r.Base != "" {
 		// Start with the "left" branch
-		checkErr(r.checkout(r.Base))
-		checkErr(r.runBenchmark(r.Base))
-		checkErr(r.checkout(r.currentBranch))
+		checkErr("checkout base", r.checkout(r.Base))
+		checkErr("run benchmark", r.runBenchmark(r.Base))
+		checkErr("checkout current branch", r.checkout(r.currentBranch))
 	} else if hasUncommittedChanges() {
 		// Stash and compare
 		fmt.Println("Stash changes")
 		stash("save")
 		r.Base = "stash"
-		checkErr(r.runBenchmark(r.Base))
+		checkErr("run benchmark", r.runBenchmark(r.Base))
 		stash("pop")
 
 	}
 
-	checkErr(r.runBenchmark(r.currentBranch))
+	checkErr("run benchmark", r.runBenchmark(r.currentBranch))
 
 	if r.Base != "" {
 		// Make it stand out a little.
 		fmt.Print("\n\n")
-		checkErr(r.runBenchcmp(r.Base, r.currentBranch))
+		checkErr("run benchcmp", r.runBenchcmp(r.Base, r.currentBranch))
 	}
 }
 
@@ -187,13 +187,13 @@ func (r runner) checkout(branch string) error {
 
 func getCurrentBranch() string {
 	output, err := exec.Command("git", "rev-parse", "--abbrev-ref", "HEAD").Output()
-	checkErr(err)
+	checkErr("get current branch", err)
 	return strings.TrimSpace(string(output))
 }
 
 func stash(command string) string {
 	output, err := exec.Command("git", "stash", command).Output()
-	checkErr(err)
+	checkErr("stash", err)
 	return strings.TrimSpace(string(output))
 }
 
@@ -211,9 +211,9 @@ func hasUncommittedChanges() bool {
 	return true
 }
 
-func checkErr(err error) {
+func checkErr(what string, err error) {
 	if err != nil {
-		log.Fatal("Error: ", err)
+		log.Fatal(what+": ", "Error: ", err)
 	}
 }
 
