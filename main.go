@@ -139,8 +139,11 @@ func (r runner) runBenchmark(name string) error {
 func (r runner) runBenchcmp(name1, name2 string) error {
 	filename1, filename2 := r.benchOutFilename(name1), r.benchOutFilename(name2)
 
-	args := []string{"-best", filename1, filename2}
-	output, err := exec.Command("benchcmp", args...).CombinedOutput()
+	const cmdName = "benchstat"
+
+	//args := []string{"-best", filename1, filename2}
+	args := []string{filename1, filename2}
+	output, err := exec.Command(cmdName, args...).CombinedOutput()
 	if err != nil {
 		return err
 	}
