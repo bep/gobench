@@ -63,8 +63,7 @@ func main() {
 	if cfg.Count == 0 {
 		cfg.Count = 1
 		if cfg.Base != "" {
-			// We pick the best result when doing compare.
-			cfg.Count = 3
+			cfg.Count = 6
 		}
 	}
 
