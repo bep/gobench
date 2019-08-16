@@ -40,6 +40,9 @@ type config struct {
 	OutDir string `help:"directory to write files to. Defaults to a temp dir."`
 }
 
+// Number of runs when comparing branches (if not set).
+const benchStatCountCompare = 4
+
 func main() {
 
 	var cfg config
@@ -58,13 +61,6 @@ func main() {
 		cfg.OutDir, err = ioutil.TempDir("", "gobench")
 		checkErr("create temp dir", err)
 		defer os.Remove(cfg.OutDir)
-	}
-
-	if cfg.Count == 0 {
-		cfg.Count = 1
-		if cfg.Base != "" {
-			cfg.Count = 6
-		}
 	}
 
 	r := runner{currentBranch: getCurrentBranch(), config: cfg}
@@ -92,16 +88,29 @@ type runner struct {
 
 func (r *runner) runBenchmarks() {
 
+	hasUncommitted := hasUncommittedChanges()
+
+	if r.Base == "" && hasUncommitted {
+		// Compare to a stashed version.
+		r.Base = "stash"
+	}
+
+	if r.Count == 0 {
+		r.Count = 1
+		if r.Base != "" {
+			r.Count = benchStatCountCompare
+		}
+	}
+
 	if r.Base != "" {
 		// Start with the "left" branch
 		checkErr("checkout base", r.checkout(r.Base))
 		checkErr("run benchmark", r.runBenchmark(r.Base))
 		checkErr("checkout current branch", r.checkout(r.currentBranch))
-	} else if hasUncommittedChanges() {
+	} else if hasUncommitted {
 		// Stash and compare
 		fmt.Println("Stash changes")
 		stash("save")
-		r.Base = "stash"
 		checkErr("run benchmark", r.runBenchmark(r.Base))
 		stash("pop")
 
@@ -112,7 +121,7 @@ func (r *runner) runBenchmarks() {
 	if r.Base != "" {
 		// Make it stand out a little.
 		fmt.Print("\n\n")
-		checkErr("run benchcmp", r.runBenchcmp(r.Base, r.currentBranch))
+		checkErr("run benchstat", r.runBencStat(r.Base, r.currentBranch))
 	}
 }
 
@@ -135,12 +144,11 @@ func (r runner) runBenchmark(name string) error {
 	return cmd.Run()
 }
 
-func (r runner) runBenchcmp(name1, name2 string) error {
+func (r runner) runBencStat(name1, name2 string) error {
 	filename1, filename2 := r.benchOutFilename(name1), r.benchOutFilename(name2)
 
 	const cmdName = "benchstat"
 
-	//args := []string{"-best", filename1, filename2}
 	args := []string{filename1, filename2}
 	output, err := exec.Command(cmdName, args...).CombinedOutput()
 	if err != nil {
