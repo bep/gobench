@@ -102,18 +102,17 @@ func (r *runner) runBenchmarks() {
 		}
 	}
 
-	if r.Base != "" {
-		// Start with the "left" branch
-		checkErr("checkout base", r.checkout(r.Base))
-		checkErr("run benchmark", r.runBenchmark(r.Base))
-		checkErr("checkout current branch", r.checkout(r.currentBranch))
-	} else if hasUncommitted {
+	if hasUncommitted {
 		// Stash and compare
 		fmt.Println("Stash changes")
 		stash("save")
 		checkErr("run benchmark", r.runBenchmark(r.Base))
 		stash("pop")
-
+	} else if r.Base != "" {
+		// Start with the "left" branch
+		checkErr("checkout base", r.checkout(r.Base))
+		checkErr("run benchmark", r.runBenchmark(r.Base))
+		checkErr("checkout current branch", r.checkout(r.currentBranch))
 	}
 
 	checkErr("run benchmark", r.runBenchmark(r.currentBranch))
