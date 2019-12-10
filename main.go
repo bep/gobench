@@ -169,6 +169,7 @@ func (r runner) runPprof() error {
 	if r.ProfMem {
 		args = append(args, "--alloc_objects")
 	}
+
 	args = append(args, r.profileOutFilename(r.currentBranch))
 
 	cmd := exec.Command(goExe, args...)
