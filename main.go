@@ -34,8 +34,9 @@ type config struct {
 	Package string `arg:"required" help:"package to test (e.g. ./lib)"`
 	Base    string `help:"Git version (tag, branch etc.) to compare with. Leave empty to run on current branch only."`
 
-	ProfMem bool `help:"write a mem profile and run pprof"`
-	ProfCpu bool `help:"write a cpu profile and run pprof"`
+	ProfMem       bool `help:"write a mem profile and run pprof"`
+	ProfCpu       bool `help:"write a cpu profile and run pprof"`
+	ProfCallgrind bool `help:"write a cpu profile and callgrind data and run qcachegrind"`
 
 	OutDir string `help:"directory to write files to. Defaults to a temp dir."`
 }
@@ -174,6 +175,12 @@ func (r runner) runPprof() error {
 		args = append(args, "--alloc_objects")
 	}
 
+	// go tool pprof -callgrind -output callgrind.out innercpu.pprof
+	if r.ProfCallgrind {
+		cf := r.callgrindOutFilename()
+		args = append(args, "-callgrind", "-output", cf)
+	}
+
 	args = append(args, r.profileOutFilename(r.currentBranch))
 
 	cmd := exec.Command(goExe, args...)
@@ -186,7 +193,24 @@ func (r runner) runPprof() error {
 		return err
 	}
 
-	return cmd.Wait()
+	if err := cmd.Wait(); err != nil {
+		log.Fatal(err)
+	}
+
+	if r.ProfCallgrind {
+		cmd := exec.Command("qcachegrind", r.callgrindOutFilename())
+
+		cmd.Stdout = os.Stdout
+		cmd.Stderr = os.Stderr
+		cmd.Stdin = os.Stdin
+		if err := cmd.Start(); err != nil {
+			return err
+		}
+
+		return cmd.Wait()
+	}
+
+	return nil
 
 }
 
@@ -258,8 +282,12 @@ func (c config) profileOutFilename(name string) string {
 	return filepath.Join(c.OutDir, (name + ".pprof"))
 }
 
+func (c config) callgrindOutFilename() string {
+	return filepath.Join(c.OutDir, ("callgrind.out"))
+}
+
 func (c config) profilingEnabled() bool {
-	return c.ProfCpu || c.ProfMem
+	return c.ProfCpu || c.ProfMem || c.ProfCallgrind
 }
 
 func (c config) createBenchOutputFile(name string) (io.WriteCloser, error) {
