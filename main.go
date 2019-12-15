@@ -90,6 +90,10 @@ func (r *runner) runBenchmarks() {
 
 	hasUncommitted := hasUncommittedChanges()
 
+	if hasUncommitted && r.Base != "" {
+		log.Fatal("error: --base set, but there are uncommited changes.")
+	}
+
 	if r.Base == "" && hasUncommitted {
 		// Compare to a stashed version.
 		r.Base = "stash"
