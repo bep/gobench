@@ -29,14 +29,14 @@ func init() {
 }
 
 type config struct {
-	Bench   string `help:"run only those benchmarks matching a regular expression"`
-	Count   int    `help:"run benchmark count times"`
-	Package string `arg:"required" help:"package to test (e.g. ./lib)"`
-	Base    string `help:"Git version (tag, branch etc.) to compare with. Leave empty to run on current branch only."`
-
-	ProfMem       bool `help:"write a mem profile and run pprof"`
-	ProfCpu       bool `help:"write a cpu profile and run pprof"`
-	ProfCallgrind bool `help:"write a cpu profile and callgrind data and run qcachegrind"`
+	Bench         string `help:"run only those benchmarks matching a regular expression"`
+	Count         int    `help:"run benchmark count times"`
+	Package       string `arg:"required" help:"package to test (e.g. ./lib)"`
+	Base          string `help:"Git version (tag, branch etc.) to compare with. Leave empty to run on current branch only."`
+	Cpu           string `help:"a comma separated list of CPU counts, e.g. -cpu 1,2,3,4"`
+	ProfMem       bool   `help:"write a mem profile and run pprof"`
+	ProfCpu       bool   `help:"write a cpu profile and run pprof"`
+	ProfCallgrind bool   `help:"write a cpu profile and callgrind data and run qcachegrind"`
 
 	OutDir string `help:"directory to write files to. Defaults to a temp dir."`
 }
@@ -269,6 +269,10 @@ func (c config) asBenchArgs(name string) []string {
 	}
 	if c.ProfCpu {
 		args = append(args, "-cpuprofile", c.profileOutFilename(name))
+	}
+
+	if c.Cpu != "" {
+		args = append(args, "-cpu", c.Cpu)
 	}
 
 	return args
