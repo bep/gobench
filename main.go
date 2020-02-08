@@ -33,6 +33,7 @@ type config struct {
 	Count         int    `help:"run benchmark count times"`
 	Package       string `arg:"required" help:"package to test (e.g. ./lib)"`
 	Base          string `help:"Git version (tag, branch etc.) to compare with. Leave empty to run on current branch only."`
+	Tags          string `help:"Build -tags"`
 	Cpu           string `help:"a comma separated list of CPU counts, e.g. -cpu 1,2,3,4"`
 	ProfMem       bool   `help:"write a mem profile and run pprof"`
 	ProfCpu       bool   `help:"write a cpu profile and run pprof"`
@@ -262,6 +263,10 @@ func (c config) asBenchArgs(name string) []string {
 		"-bench", c.Bench,
 		fmt.Sprintf("-count=%d", c.Count),
 		"-test.benchmem=true",
+	}
+
+	if c.Tags != "" {
+		args = append(args, "-tags", c.Tags)
 	}
 
 	if c.ProfMem {
