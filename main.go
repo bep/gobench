@@ -33,6 +33,7 @@ type config struct {
 	Count         int    `help:"run benchmark count times"`
 	Package       string `arg:"required" help:"package to test (e.g. ./lib)"`
 	Base          string `help:"Git version (tag, branch etc.) to compare with. Leave empty to run on current branch only."`
+	BaseGoExe     string `help:"The Go binary to use for the second run."`
 	Tags          string `help:"Build -tags"`
 	Cpu           string `help:"a comma separated list of CPU counts, e.g. -cpu 1,2,3,4"`
 	ProfMem       bool   `help:"write a mem profile and run pprof"`
@@ -66,8 +67,6 @@ func main() {
 	}
 
 	r := runner{currentBranch: getCurrentBranch(), config: cfg}
-
-	fmt.Printf("Using Go binary: %q\n", goExe)
 
 	if r.Base != "" {
 		fmt.Printf("Benchmark and compare branch %q and %q.\n", r.Base, r.currentBranch)
@@ -103,37 +102,51 @@ func (r *runner) runBenchmarks() {
 
 	if r.Count == 0 {
 		r.Count = 1
-		if r.Base != "" {
+		if r.Base != "" || r.BaseGoExe != "" {
 			r.Count = benchStatCountCompare
 		}
 	}
 
-	if hasUncommitted {
+	first, second := r.Base, r.currentBranch
+
+	if r.BaseGoExe != "" {
+		first = r.currentBranch
+		second = r.BaseGoExe
+		checkErr("run benchmark", r.runBenchmark(1, first))
+	} else if hasUncommitted {
 		// Stash and compare
 		fmt.Println("Stash changes")
 		stash("save")
-		checkErr("run benchmark", r.runBenchmark(r.Base))
+		checkErr("run benchmark", r.runBenchmark(1, first))
 		stash("pop")
 	} else if r.Base != "" {
 		// Start with the "left" branch
-		checkErr("checkout base", r.checkout(r.Base))
-		checkErr("run benchmark", r.runBenchmark(r.Base))
-		checkErr("checkout current branch", r.checkout(r.currentBranch))
+		checkErr("checkout base", r.checkout(first))
+		checkErr("run benchmark", r.runBenchmark(1, first))
+		checkErr("checkout current branch", r.checkout(second))
 	}
 
-	checkErr("run benchmark", r.runBenchmark(r.currentBranch))
+	checkErr("run benchmark", r.runBenchmark(2, second))
 
-	if r.Base != "" {
+	if first != "" {
 		// Make it stand out a little.
 		fmt.Print("\n\n")
-		checkErr("run benchstat", r.runBencStat(r.Base, r.currentBranch))
+		checkErr("run benchstat", r.runBencStat(first, second))
 	}
 }
 
-func (r runner) runBenchmark(name string) error {
+func (r runner) runBenchmark(runCount int, name string) error {
 	args := append(r.asBenchArgs(name), r.Package)
 
-	cmd := exec.Command(goExe, args...)
+	exeName := goExe
+	if runCount > 1 && r.BaseGoExe != "" {
+		exeName = r.BaseGoExe
+	}
+
+	b, _ := exec.Command(exeName, "version").CombinedOutput()
+	fmt.Println("\n", string(b))
+
+	cmd := exec.Command(exeName, args...)
 
 	f, err := r.createBenchOutputFile(name)
 	if err != nil {
