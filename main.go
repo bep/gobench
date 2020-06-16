@@ -296,12 +296,17 @@ func (c config) asBenchArgs(name string) []string {
 	return args
 }
 
+func (c config) normalizeName(name string) string {
+	// Slashes in branch names.
+	return strings.ReplaceAll(name, "/", "-")
+}
+
 func (c config) benchOutFilename(name string) string {
-	return filepath.Join(c.OutDir, name+".bench")
+	return filepath.Join(c.OutDir, c.normalizeName(name)+".bench")
 }
 
 func (c config) profileOutFilename(name string) string {
-	return filepath.Join(c.OutDir, (name + ".pprof"))
+	return filepath.Join(c.OutDir, (c.normalizeName(name) + ".pprof"))
 }
 
 func (c config) callgrindOutFilename() string {
