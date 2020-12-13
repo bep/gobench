@@ -29,16 +29,16 @@ func init() {
 }
 
 type config struct {
-	Bench         string `help:"run only those benchmarks matching a regular expression"`
-	Count         int    `help:"run benchmark count times"`
-	Package       string `arg:"required" help:"package to test (e.g. ./lib)"`
-	Base          string `help:"Git version (tag, branch etc.) to compare with. Leave empty to run on current branch only."`
-	BaseGoExe     string `help:"The Go binary to use for the second run."`
-	Tags          string `help:"Build -tags"`
-	Cpu           string `help:"a comma separated list of CPU counts, e.g. -cpu 1,2,3,4"`
-	ProfMem       bool   `help:"write a mem profile and run pprof"`
-	ProfCpu       bool   `help:"write a cpu profile and run pprof"`
-	ProfCallgrind bool   `help:"write a cpu profile and callgrind data and run qcachegrind"`
+	Bench           string `help:"run only those benchmarks matching a regular expression"`
+	Count           int    `help:"run benchmark count times"`
+	Package         string `arg:"required" help:"package to test (e.g. ./lib)"`
+	Base            string `help:"Git version (tag, branch etc.) to compare with. Leave empty to run on current branch only."`
+	BaseGoExe       string `help:"The Go binary to use for the second run."`
+	Tags            string `help:"Build -tags"`
+	Cpu             string `help:"a comma separated list of CPU counts, e.g. -cpu 1,2,3,4"`
+	ProfType        string `help:"write a profile of the given type and run pprof; valid types are 'cpu', 'mem', 'block'."`
+	ProfCallgrind   bool   `help:"write a cpu profile and callgrind data and run qcachegrind"`
+	ProfSampleIndex string `help:"pprof sample index"`
 
 	OutDir string `help:"directory to write files to. Defaults to a temp dir."`
 }
@@ -55,8 +55,10 @@ func main() {
 
 	p := arg.MustParse(&cfg)
 
-	if cfg.ProfCpu && cfg.ProfMem {
-		p.Fail("Use either --profmem or --profcpu not both.")
+	if cfg.ProfType != "" {
+		if cfg.ProfType != "mem" && cfg.ProfType != "cpu" && cfg.ProfType != "block" {
+			p.Fail("Unsupported profType")
+		}
 	}
 
 	if cfg.OutDir == "" {
@@ -185,8 +187,12 @@ func (r runner) runPprof() error {
 
 	args = append(args, "--ignore=runtime")
 
-	if r.ProfMem {
+	if r.ProfType == "mem" && r.ProfSampleIndex == "" {
 		args = append(args, "--alloc_objects")
+	}
+
+	if r.ProfSampleIndex != "" {
+		args = append(args, "-sample_index="+r.ProfSampleIndex)
 	}
 
 	// go tool pprof -callgrind -output callgrind.out innercpu.pprof
@@ -282,11 +288,8 @@ func (c config) asBenchArgs(name string) []string {
 		args = append(args, "-tags", c.Tags)
 	}
 
-	if c.ProfMem {
-		args = append(args, "-memprofile", c.profileOutFilename(name))
-	}
-	if c.ProfCpu {
-		args = append(args, "-cpuprofile", c.profileOutFilename(name))
+	if c.ProfType != "" {
+		args = append(args, fmt.Sprintf("-%sprofile", c.ProfType), c.profileOutFilename(name))
 	}
 
 	if c.Cpu != "" {
@@ -314,7 +317,7 @@ func (c config) callgrindOutFilename() string {
 }
 
 func (c config) profilingEnabled() bool {
-	return c.ProfCpu || c.ProfMem || c.ProfCallgrind
+	return c.ProfType != ""
 }
 
 func (c config) createBenchOutputFile(name string) (io.WriteCloser, error) {
