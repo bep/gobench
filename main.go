@@ -110,25 +110,28 @@ func (r *runner) runBenchmarks() {
 	}
 
 	first, second := r.Base, r.currentBranch
+	exe1, exe2 := r.BaseGoExe, goExe
+	if exe1 == "" {
+		exe1 = goExe
+	}
 
-	if r.BaseGoExe != "" {
-		first = r.currentBranch
-		second = r.BaseGoExe
-		checkErr("run benchmark", r.runBenchmark(1, first))
-	} else if hasUncommitted {
+	if hasUncommitted {
 		// Stash and compare
 		fmt.Println("Stash changes")
 		stash("save")
-		checkErr("run benchmark", r.runBenchmark(1, first))
+		checkErr("run benchmark", r.runBenchmark(exe1, first))
 		stash("pop")
-	} else if r.Base != "" {
+	} else if r.Base != "" || r.BaseGoExe != "" {
+		if first == "" {
+			first = r.currentBranch
+		}
 		// Start with the "left" branch
 		checkErr("checkout base", r.checkout(first))
-		checkErr("run benchmark", r.runBenchmark(1, first))
+		checkErr("run benchmark", r.runBenchmark(exe1, first))
 		checkErr("checkout current branch", r.checkout(second))
 	}
 
-	checkErr("run benchmark", r.runBenchmark(2, second))
+	checkErr("run benchmark", r.runBenchmark(exe2, second))
 
 	if first != "" {
 		// Make it stand out a little.
@@ -137,13 +140,8 @@ func (r *runner) runBenchmarks() {
 	}
 }
 
-func (r runner) runBenchmark(runCount int, name string) error {
+func (r runner) runBenchmark(exeName, name string) error {
 	args := append(r.asBenchArgs(name), r.Package)
-
-	exeName := goExe
-	if runCount > 1 && r.BaseGoExe != "" {
-		exeName = r.BaseGoExe
-	}
 
 	b, _ := exec.Command(exeName, "version").CombinedOutput()
 	fmt.Println("\n", string(b))
