@@ -280,6 +280,7 @@ func (c config) asBenchArgs(name string) []string {
 		"-bench", c.Bench,
 		fmt.Sprintf("-count=%d", c.Count),
 		"-test.benchmem=true",
+		"-timeout", "40m",
 	}
 
 	if c.Tags != "" {
