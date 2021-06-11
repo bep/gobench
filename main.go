@@ -110,10 +110,7 @@ func (r *runner) runBenchmarks() {
 	}
 
 	first, second := r.Base, r.currentBranch
-	exe1, exe2 := r.BaseGoExe, goExe
-	if exe1 == "" {
-		exe1 = goExe
-	}
+	exe1, exe2 := goExe, r.BaseGoExe
 
 	if hasUncommitted {
 		// Stash and compare
@@ -128,7 +125,9 @@ func (r *runner) runBenchmarks() {
 		// Start with the "left" branch
 		checkErr("checkout base", r.checkout(first))
 		checkErr("run benchmark", r.runBenchmark(exe1, first))
-		checkErr("checkout current branch", r.checkout(second))
+		if second != first {
+			checkErr("checkout current branch", r.checkout(second))
+		}
 	}
 
 	checkErr("run benchmark", r.runBenchmark(exe2, second))
