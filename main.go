@@ -111,7 +111,9 @@ func (r *runner) runBenchmarks() {
 
 	first, second := r.Base, r.currentBranch
 	exe1, exe2 := goExe, r.BaseGoExe
-
+	if exe2 == "" {
+		exe2 = exe1
+	}
 	if hasUncommitted {
 		// Stash and compare
 		fmt.Println("Stash changes")
@@ -158,7 +160,12 @@ func (r runner) runBenchmark(exeName, name string) error {
 	cmd.Stdout = output
 	cmd.Stderr = os.Stderr
 
-	return cmd.Run()
+	err = cmd.Run()
+	if err != nil {
+		fmt.Errorf("failed to execute %q: %s", exeName, err)
+	}
+
+	return nil
 }
 
 func (r runner) runBencStat(name1, name2 string) error {
