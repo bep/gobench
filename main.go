@@ -186,7 +186,7 @@ func (r runner) runBencStat(name1, name2 string) error {
 func (r runner) runPprof() error {
 	args := []string{"tool", "pprof"}
 	if r.Base != "" {
-		args = append(args, "-base", r.profileOutFilename(r.Base))
+		args = append(args, "-diff_base", r.profileOutFilename(r.Base))
 	}
 
 	args = append(args, "--ignore=runtime")
