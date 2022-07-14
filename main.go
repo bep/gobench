@@ -34,6 +34,7 @@ type config struct {
 	Package         string `arg:"required" help:"package to test (e.g. ./lib)"`
 	Base            string `help:"Git version (tag, branch etc.) to compare with. Leave empty to run on current branch only."`
 	BaseGoExe       string `help:"The Go binary to use for the second run."`
+	NoStash         bool   `help:"Don't stash uncommited changes (just run the benchmark against the current code)."`
 	Tags            string `help:"Build -tags"`
 	Cpu             string `help:"a comma separated list of CPU counts, e.g. -cpu 1,2,3,4"`
 	ProfType        string `help:"write a profile of the given type and run pprof; valid types are 'cpu', 'mem', 'block'."`
@@ -91,15 +92,19 @@ type runner struct {
 
 func (r *runner) runBenchmarks() {
 
-	hasUncommitted := hasUncommittedChanges()
+	var hasUncommitted bool
 
-	if hasUncommitted && r.Base != "" {
-		log.Fatal("error: --base set, but there are uncommited changes.")
-	}
+	if !r.NoStash {
+		hasUncommitted = hasUncommittedChanges()
 
-	if r.Base == "" && hasUncommitted {
-		// Compare to a stashed version.
-		r.Base = "stash"
+		if hasUncommitted && r.Base != "" {
+			log.Fatal("error: --base set, but there are uncommited changes.")
+		}
+
+		if r.Base == "" && hasUncommitted {
+			// Compare to a stashed version.
+			r.Base = "stash"
+		}
 	}
 
 	if r.Count == 0 {
