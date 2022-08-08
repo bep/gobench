@@ -167,7 +167,7 @@ func (r runner) runBenchmark(exeName, name string) error {
 
 	err = cmd.Run()
 	if err != nil {
-		fmt.Errorf("failed to execute %q: %s", exeName, err)
+		return fmt.Errorf("failed to execute %q: %s", exeName, err)
 	}
 
 	return nil
