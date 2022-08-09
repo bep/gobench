@@ -142,7 +142,7 @@ func (r *runner) runBenchmarks() {
 
 	// Make it stand out a little.
 	fmt.Print("\n\n")
-	checkErr("run benchstat", r.runBencStat(first, second))
+	checkErr("run benchstat", r.runBenchStat(first, second))
 
 }
 
@@ -173,7 +173,7 @@ func (r runner) runBenchmark(exeName, name string) error {
 	return nil
 }
 
-func (r runner) runBencStat(name1, name2 string) error {
+func (r runner) runBenchStat(name1, name2 string) error {
 	if name2 == "" {
 		return errors.New("no second name")
 	}
@@ -185,7 +185,7 @@ func (r runner) runBencStat(name1, name2 string) error {
 
 	const cmdName = "benchstat"
 
-	var args []string
+	args := []string{"-sort", "name"}
 	if name1 != "" {
 		args = []string{filename1, filename2}
 	} else {
