@@ -1,6 +1,7 @@
 package main
 
 import (
+	"errors"
 	"fmt"
 	"io"
 	"io/ioutil"
@@ -139,11 +140,10 @@ func (r *runner) runBenchmarks() {
 
 	checkErr("run benchmark", r.runBenchmark(exe2, second))
 
-	if first != "" {
-		// Make it stand out a little.
-		fmt.Print("\n\n")
-		checkErr("run benchstat", r.runBencStat(first, second))
-	}
+	// Make it stand out a little.
+	fmt.Print("\n\n")
+	checkErr("run benchstat", r.runBencStat(first, second))
+
 }
 
 func (r runner) runBenchmark(exeName, name string) error {
@@ -174,11 +174,24 @@ func (r runner) runBenchmark(exeName, name string) error {
 }
 
 func (r runner) runBencStat(name1, name2 string) error {
-	filename1, filename2 := r.benchOutFilename(name1), r.benchOutFilename(name2)
+	if name2 == "" {
+		return errors.New("no second name")
+	}
+	var filename1, filename2 string
+	if name1 != "" {
+		filename1 = r.benchOutFilename(name1)
+	}
+	filename2 = r.benchOutFilename(name2)
 
 	const cmdName = "benchstat"
 
-	args := []string{filename1, filename2}
+	var args []string
+	if name1 != "" {
+		args = []string{filename1, filename2}
+	} else {
+		args = []string{filename2}
+	}
+
 	output, err := exec.Command(cmdName, args...).CombinedOutput()
 	if err != nil {
 		return err
