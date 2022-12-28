@@ -32,7 +32,7 @@ func init() {
 type config struct {
 	Bench           string `help:"run only those benchmarks matching a regular expression"`
 	Count           int    `help:"run benchmark count times"`
-	Package         string `arg:"required" help:"package to test (e.g. ./lib)"`
+	Package         string `arg:"" help:"package to test (e.g. ./lib)" default:"."`
 	Base            string `help:"Git version (tag, branch etc.) to compare with. Leave empty to run on current branch only."`
 	BaseGoExe       string `help:"The Go binary to use for the second run."`
 	NoStash         bool   `help:"Don't stash uncommited changes (just run the benchmark against the current code)."`
