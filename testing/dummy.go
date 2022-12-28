@@ -12,7 +12,6 @@ var (
 func sleep() {
 	a := make([]int, size)
 	if len(a) == 0 {
-
 	}
 	time.Sleep(d)
 }

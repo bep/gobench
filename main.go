@@ -49,7 +49,6 @@ type config struct {
 const benchStatCountCompare = 4
 
 func main() {
-
 	var cfg config
 
 	// Defaults
@@ -83,7 +82,6 @@ func main() {
 	if r.profilingEnabled() {
 		r.runPprof()
 	}
-
 }
 
 type runner struct {
@@ -92,7 +90,6 @@ type runner struct {
 }
 
 func (r *runner) runBenchmarks() {
-
 	var hasUncommitted bool
 
 	if !r.NoStash {
@@ -143,7 +140,6 @@ func (r *runner) runBenchmarks() {
 	// Make it stand out a little.
 	fmt.Print("\n\n")
 	checkErr("run benchstat", r.runBenchStat(first, second))
-
 }
 
 func (r runner) runBenchmark(exeName, name string) error {
@@ -253,7 +249,6 @@ func (r runner) runPprof() error {
 	}
 
 	return nil
-
 }
 
 func (r runner) checkout(branch string) error {

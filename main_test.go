@@ -37,7 +37,7 @@ func TestBenchmarkCompareToStashed(t *testing.T) {
 
 	const dummy = "gobenchdummyfile.txt"
 
-	ioutil.WriteFile(dummy, []byte("hello"), 0777)
+	ioutil.WriteFile(dummy, []byte("hello"), 0o777)
 	defer os.Remove(dummy)
 
 	out := captureOutput(main)
