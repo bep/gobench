@@ -4,7 +4,6 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"log"
 	"os"
 	"os/exec"
@@ -58,13 +57,13 @@ func main() {
 
 	if cfg.ProfType != "" {
 		if cfg.ProfType != "mem" && cfg.ProfType != "cpu" && cfg.ProfType != "block" {
-			p.Fail("Unsupported profType")
+			p.Fail(fmt.Sprintf("invalid profile type %q. Must be one of %v", cfg.ProfType, []string{"mem", "cpu", "block"}))
 		}
 	}
 
 	if cfg.OutDir == "" {
 		var err error
-		cfg.OutDir, err = ioutil.TempDir("", "gobench")
+		cfg.OutDir, err = os.MkdirTemp("", "gobench")
 		checkErr("create temp dir", err)
 		defer os.Remove(cfg.OutDir)
 	}
