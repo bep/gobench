@@ -36,6 +36,7 @@ type config struct {
 	BaseGoExe       string `help:"The Go binary to use for the second run."`
 	NoStash         bool   `help:"Don't stash uncommited changes (just run the benchmark against the current code)."`
 	Tags            string `help:"Build -tags"`
+	Race            bool   `help:"Run with -race flag"`
 	Cpu             string `help:"a comma separated list of CPU counts, e.g. -cpu 1,2,3,4"`
 	ProfType        string `help:"write a profile of the given type and run pprof; valid types are 'cpu', 'mem', 'block'."`
 	ProfCallgrind   bool   `help:"write a cpu profile and callgrind data and run qcachegrind"`
@@ -299,6 +300,9 @@ func (c config) asBenchArgs(name string) []string {
 		fmt.Sprintf("-count=%d", c.Count),
 		"-test.benchmem=true",
 		"-timeout", "40m",
+	}
+	if c.Race {
+		args = append(args, "-race")
 	}
 
 	if c.Tags != "" {
