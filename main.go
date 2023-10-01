@@ -37,6 +37,7 @@ type config struct {
 	NoStash         bool   `help:"Don't stash uncommited changes (just run the benchmark against the current code)."`
 	Tags            string `help:"Build -tags"`
 	Race            bool   `help:"Run with -race flag"`
+	IncludeRuntime  bool   `help:"Include runtime in the profile."`
 	Cpu             string `help:"a comma separated list of CPU counts, e.g. -cpu 1,2,3,4"`
 	ProfType        string `help:"write a profile of the given type and run pprof; valid types are 'cpu', 'mem', 'block'."`
 	ProfCallgrind   bool   `help:"write a cpu profile and callgrind data and run qcachegrind"`
@@ -203,7 +204,9 @@ func (r runner) runPprof() error {
 		args = append(args, "-diff_base", r.profileOutFilename(r.Base))
 	}
 
-	args = append(args, "--ignore=runtime")
+	if !r.IncludeRuntime {
+		args = append(args, "--ignore=runtime")
+	}
 
 	if r.ProfType == "mem" && r.ProfSampleIndex == "" {
 		args = append(args, "--alloc_objects")
