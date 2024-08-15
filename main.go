@@ -33,7 +33,7 @@ type config struct {
 	Count           int    `help:"run benchmark count times"`
 	Package         string `arg:"" help:"package to test (e.g. ./lib)" default:"."`
 	Base            string `help:"Git version (tag, branch etc.) to compare with. Leave empty to run on current branch only."`
-	BaseGoExe       string `help:"The Go binary to use for the second run."`
+	BaseGoExe       string `help:"The Go binary to use for the first run."`
 	NoStash         bool   `help:"Don't stash uncommited changes (just run the benchmark against the current code)."`
 	Tags            string `help:"Build -tags"`
 	Race            bool   `help:"Run with -race flag"`
@@ -114,9 +114,9 @@ func (r *runner) runBenchmarks() {
 	}
 
 	first, second := r.Base, r.currentBranch
-	exe1, exe2 := goExe, r.BaseGoExe
-	if exe2 == "" {
-		exe2 = exe1
+	exe1, exe2 := r.BaseGoExe, goExe
+	if exe1 == "" {
+		exe1 = exe2
 	}
 	if hasUncommitted {
 		// Stash and compare
