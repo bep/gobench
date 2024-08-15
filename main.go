@@ -174,25 +174,26 @@ func (r runner) runBenchStat(name1, name2 string) error {
 	if name2 == "" {
 		return errors.New("no second name")
 	}
-	var filename1, filename2 string
-	if name1 != "" {
-		filename1 = r.benchOutFilename(name1)
-	}
-	filename2 = r.benchOutFilename(name2)
-
 	const cmdName = "benchstat"
+
+	name2 = r.benchOutName(name2)
 
 	args := []string{"-sort", "name"}
 	if name1 != "" {
-		args = []string{filename1, filename2}
+		name1 = r.benchOutName(name1)
+		args = []string{name1, name2}
 	} else {
-		args = []string{filename2}
+		args = []string{name2}
 	}
 
-	output, err := exec.Command(cmdName, args...).CombinedOutput()
+	cmd := exec.Command(cmdName, args...)
+	cmd.Dir = r.OutDir
+
+	output, err := cmd.CombinedOutput()
 	if err != nil {
 		return err
 	}
+
 	fmt.Println(string(output))
 
 	return nil
@@ -329,7 +330,11 @@ func (c config) normalizeName(name string) string {
 }
 
 func (c config) benchOutFilename(name string) string {
-	return filepath.Join(c.OutDir, c.normalizeName(name)+".bench")
+	return filepath.Join(c.OutDir, c.benchOutName(name))
+}
+
+func (c config) benchOutName(name string) string {
+	return c.normalizeName(name) + ".bench"
 }
 
 func (c config) profileOutFilename(name string) string {
