@@ -40,9 +40,11 @@ type config struct {
 	IncludeRuntime  bool   `help:"Include runtime in the profile."`
 	Cpu             string `help:"a comma separated list of CPU counts, e.g. -cpu 1,2,3,4"`
 	ProfType        string `help:"write a profile of the given type and run pprof; valid types are 'cpu', 'mem', 'block'."`
-	Gran            string `help:"pprof granularity, one of 'file','functions', 'filefunctions', 'files', 'lines', 'addresses'"`
+	ProfGran        string `help:"pprof granularity, one of 'file','functions', 'filefunctions', 'files', 'lines', 'addresses'"`
+	ProfNodecount   int    `help:"max number of nodes to show" default:"10"`
 	ProfCallgrind   bool   `help:"write a cpu profile and callgrind data and run qcachegrind"`
 	ProfSampleIndex string `help:"pprof sample index"`
+	ProfAlloc       string `help:"pprof alloc space or alloc objects" default:"objects"`
 
 	OutDir string `help:"directory to write files to. Defaults to a temp dir."`
 }
@@ -215,7 +217,7 @@ func (r runner) runPprof() error {
 	}
 
 	if r.ProfType == "mem" && r.ProfSampleIndex == "" {
-		args = append(args, "--alloc_objects")
+		args = append(args, fmt.Sprintf("--alloc_%s", r.ProfAlloc))
 	}
 
 	if r.ProfSampleIndex != "" {
@@ -228,7 +230,7 @@ func (r runner) runPprof() error {
 		args = append(args, "-callgrind", "-output", cf)
 	}
 
-	if r.Gran != "" {
+	if r.ProfGran != "" {
 		valid := map[string]bool{
 			"file":          true,
 			"functions":     true,
@@ -237,13 +239,15 @@ func (r runner) runPprof() error {
 			"lines":         true,
 			"addresses":     true,
 		}
-		if !valid[r.Gran] {
-			return fmt.Errorf("invalid granularity %q. Must be one of %v", r.Gran, []string{"file", "functions", "filefunctions", "files", "lines", "addresses"})
+		if !valid[r.ProfGran] {
+			return fmt.Errorf("invalid granularity %q. Must be one of %v", r.ProfGran, []string{"file", "functions", "filefunctions", "files", "lines", "addresses"})
 		}
-		args = append(args, "-"+r.Gran)
+		args = append(args, "-"+r.ProfGran)
 	}
 
-	args = append(args, "-lines")
+	if r.ProfNodecount > 0 {
+		args = append(args, fmt.Sprintf("-nodecount=%d", r.ProfNodecount))
+	}
 
 	args = append(args, r.profileOutFilename(r.currentBranch))
 
