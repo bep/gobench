@@ -40,6 +40,7 @@ type config struct {
 	IncludeRuntime  bool   `help:"Include runtime in the profile."`
 	Cpu             string `help:"a comma separated list of CPU counts, e.g. -cpu 1,2,3,4"`
 	ProfType        string `help:"write a profile of the given type and run pprof; valid types are 'cpu', 'mem', 'block'."`
+	Gran            string `help:"pprof granularity, one of 'file','functions', 'filefunctions', 'files', 'lines', 'addresses'"`
 	ProfCallgrind   bool   `help:"write a cpu profile and callgrind data and run qcachegrind"`
 	ProfSampleIndex string `help:"pprof sample index"`
 
@@ -178,13 +179,17 @@ func (r runner) runBenchStat(name1, name2 string) error {
 
 	name2 = r.benchOutName(name2)
 
-	args := []string{"-sort", "name"}
+	var args []string
 	if name1 != "" {
 		name1 = r.benchOutName(name1)
 		args = []string{name1, name2}
 	} else {
 		args = []string{name2}
 	}
+
+	flags := []string{"-format", "text"}
+
+	args = append(flags, args...)
 
 	cmd := exec.Command(cmdName, args...)
 	cmd.Dir = r.OutDir
@@ -222,6 +227,23 @@ func (r runner) runPprof() error {
 		cf := r.callgrindOutFilename()
 		args = append(args, "-callgrind", "-output", cf)
 	}
+
+	if r.Gran != "" {
+		valid := map[string]bool{
+			"file":          true,
+			"functions":     true,
+			"filefunctions": true,
+			"files":         true,
+			"lines":         true,
+			"addresses":     true,
+		}
+		if !valid[r.Gran] {
+			return fmt.Errorf("invalid granularity %q. Must be one of %v", r.Gran, []string{"file", "functions", "filefunctions", "files", "lines", "addresses"})
+		}
+		args = append(args, "-"+r.Gran)
+	}
+
+	args = append(args, "-lines")
 
 	args = append(args, r.profileOutFilename(r.currentBranch))
 
