@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bytes"
 	"errors"
 	"fmt"
 	"io"
@@ -8,6 +9,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"regexp"
 	"strings"
 
 	arg "github.com/alexflint/go-arg"
@@ -380,7 +382,52 @@ func (c config) createBenchOutputFile(name string) (io.WriteCloser, error) {
 	if err != nil {
 		return nil, err
 	}
-	return f, nil
+	return &pkgNormalizer{w: f}, nil
+}
+
+// Strips the major version suffix from a module path so benchstat
+// sees e.g. "example.com/foo" for both "example.com/foo" and "example.com/foo/v2".
+var pkgVersionRe = regexp.MustCompile(`^(pkg:\s+\S+?)/v[0-9]+\s*$`)
+
+// pkgNormalizer normalizes the "pkg:" lines in the benchmark output.
+type pkgNormalizer struct {
+	w   io.WriteCloser
+	buf []byte
+}
+
+func (n *pkgNormalizer) Write(p []byte) (int, error) {
+	n.buf = append(n.buf, p...)
+	for {
+		i := bytes.IndexByte(n.buf, '\n')
+		if i < 0 {
+			break
+		}
+		if err := n.writeLine(n.buf[:i], true); err != nil {
+			return 0, err
+		}
+		n.buf = n.buf[i+1:]
+	}
+	return len(p), nil
+}
+
+func (n *pkgNormalizer) writeLine(line []byte, nl bool) error {
+	line = pkgVersionRe.ReplaceAll(line, []byte("$1"))
+	if nl {
+		line = append(line[:len(line):len(line)], '\n')
+	}
+	_, err := n.w.Write(line)
+	return err
+}
+
+func (n *pkgNormalizer) Close() error {
+	if len(n.buf) > 0 {
+		if err := n.writeLine(n.buf, false); err != nil {
+			n.w.Close()
+			return err
+		}
+		n.buf = nil
+	}
+	return n.w.Close()
 }
 
 func (c config) Version() string {
