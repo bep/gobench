@@ -35,7 +35,7 @@ type config struct {
 	Count           int    `help:"run benchmark count times"`
 	Package         string `arg:"" help:"package to test (e.g. ./lib)" default:"."`
 	Base            string `help:"Git version (tag, branch etc.) to compare with. Leave empty to run on current branch only."`
-	BaseGoExe       string `help:"The Go binary to use for the first run."`
+	BaseGoToolChain string `help:"The Go toolchain to use for the first run."`
 	NoStash         bool   `help:"Don't stash uncommited changes (just run the benchmark against the current code)."`
 	Tags            string `help:"Build -tags"`
 	Race            bool   `help:"Run with -race flag"`
@@ -113,48 +113,48 @@ func (r *runner) runBenchmarks() {
 
 	if r.Count == 0 {
 		r.Count = 1
-		if r.Base != "" || r.BaseGoExe != "" {
+		if r.Base != "" || r.BaseGoToolChain != "" {
 			r.Count = benchStatCountCompare
 		}
 	}
 
 	first, second := r.Base, r.currentBranch
-	exe1, exe2 := r.BaseGoExe, goExe
-	if exe1 == "" {
-		exe1 = exe2
-	}
+
 	if hasUncommitted {
 		// Stash and compare
 		fmt.Println("Stash changes")
 		stash("save")
-		checkErr("run benchmark", r.runBenchmark(exe1, first))
+		checkErr("run benchmark", r.runBenchmark(r.BaseGoToolChain, first))
 		stash("pop")
-	} else if r.Base != "" || r.BaseGoExe != "" {
+	} else if r.Base != "" || r.BaseGoToolChain != "" {
 		if first == "" {
 			first = r.currentBranch
 		}
 		// Start with the "left" branch
 		checkErr("checkout base", r.checkout(first))
-		checkErr("run benchmark", r.runBenchmark(exe1, first))
+		checkErr("run benchmark", r.runBenchmark(r.BaseGoToolChain, first))
 		if second != first {
 			checkErr("checkout current branch", r.checkout(second))
 		}
 	}
 
-	checkErr("run benchmark", r.runBenchmark(exe2, second))
+	checkErr("run benchmark", r.runBenchmark("", second))
 
 	// Make it stand out a little.
 	fmt.Print("\n\n")
 	checkErr("run benchstat", r.runBenchStat(first, second))
 }
 
-func (r runner) runBenchmark(exeName, name string) error {
+func (r runner) runBenchmark(goToolChain, name string) error {
 	args := append(r.asBenchArgs(name), r.Package)
 
-	b, _ := exec.Command(exeName, "version").CombinedOutput()
+	b, _ := exec.Command(goExe, "version").CombinedOutput()
 	fmt.Println("\n", string(b))
 
-	cmd := exec.Command(exeName, args...)
+	cmd := exec.Command(goExe, args...)
+	if goToolChain != "" {
+		cmd.Env = append(os.Environ(), "GOTOOLCHAIN="+goToolChain)
+	}
 
 	f, err := r.createBenchOutputFile(name)
 	if err != nil {
@@ -169,7 +169,7 @@ func (r runner) runBenchmark(exeName, name string) error {
 
 	err = cmd.Run()
 	if err != nil {
-		return fmt.Errorf("failed to execute %q: %s", exeName, err)
+		return fmt.Errorf("failed to execute %q: %s", goToolChain, err)
 	}
 
 	return nil
