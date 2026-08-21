@@ -10,6 +10,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"regexp"
+	"slices"
 	"strings"
 
 	arg "github.com/alexflint/go-arg"
@@ -413,7 +414,7 @@ func (n *pkgNormalizer) Write(p []byte) (int, error) {
 func (n *pkgNormalizer) writeLine(line []byte, nl bool) error {
 	line = pkgVersionRe.ReplaceAll(line, []byte("$1"))
 	if nl {
-		line = append(line[:len(line):len(line)], '\n')
+		line = append(slices.Clip(line), '\n')
 	}
 	_, err := n.w.Write(line)
 	return err
