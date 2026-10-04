@@ -46,6 +46,7 @@ type config struct {
 	ProfGran        string `help:"pprof granularity, one of 'file','functions', 'filefunctions', 'files', 'lines', 'addresses'"`
 	ProfNodecount   int    `help:"max number of nodes to show" default:"10"`
 	ProfCallgrind   bool   `help:"write a cpu profile and callgrind data and run qcachegrind"`
+	ProfPprofecy    bool   `help:"open the profile(s) in pprofecy instead of pprof"`
 	ProfSampleIndex string `help:"pprof sample index"`
 	ProfAlloc       string `help:"pprof alloc space or alloc objects" default:"objects"`
 
@@ -87,7 +88,11 @@ func main() {
 	r.runBenchmarks()
 
 	if r.profilingEnabled() {
-		r.runPprof()
+		if r.ProfPprofecy {
+			r.runPprofecy()
+		} else {
+			r.runPprof()
+		}
 	}
 }
 
@@ -207,6 +212,28 @@ func (r runner) runBenchStat(name1, name2 string) error {
 	fmt.Println(string(output))
 
 	return nil
+}
+
+// See https://github.com/thevilledev/pprofecy
+func (r runner) runPprofecy() error {
+	// pprofecy --focus summarize --min 5% --depth 2 --base demo/before.pprof demo/after.pprof
+	args := []string{"--min", "5%"}
+	if r.Base != "" {
+		args = append(args, "--base", r.profileOutFilename(r.Base))
+	}
+	args = append(args, r.profileOutFilename(r.currentBranch))
+	cmd := exec.Command("pprofecy", args...)
+	cmd.Dir = r.OutDir
+
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+	cmd.Stdin = os.Stdin
+
+	if err := cmd.Start(); err != nil {
+		return err
+	}
+
+	return cmd.Wait()
 }
 
 func (r runner) runPprof() error {
@@ -371,7 +398,7 @@ func (c config) profileOutFilename(name string) string {
 }
 
 func (c config) callgrindOutFilename() string {
-	return filepath.Join(c.OutDir, ("callgrind.out"))
+	return filepath.Join(c.OutDir, "callgrind.out")
 }
 
 func (c config) profilingEnabled() bool {
